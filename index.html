@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" integrity="sha512-jnSuA4Ss2PkkikSOLtYs8BlYIeeIK1h99ty4YfvRPAlzr377vr3CXDb7sb7eEEBYjDtcYj+AjBH3FLv5uSJuXg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js" integrity="sha512-7Pi/otdlbbCR+LnW+F7PwFcSDJOuUJB3OxtEHbg4vSMvzvJjde4Po1v4BR9Gdc9aXNUNFVUY+SK51wWT8WF0Gg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
   <link rel="stylesheet" href="css/sticky-footer-navbar.css">
@@ -26,15 +27,90 @@
       padding-left: 10px;
       padding-right: 10px;
     }
+
+    .debug-console-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+      transition: all 0.3s ease;
+    }
+
+    .debug-console-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+    }
+
+    .error-container {
+      margin: 20px 0;
+    }
+
+    .loading-spinner {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 9999;
+    }
+
+    .module-status {
+      font-size: 0.8em;
+      color: #6c757d;
+      margin-top: 10px;
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+
+    .status-ok { background-color: #28a745; }
+    .status-error { background-color: #dc3545; }
+    .status-warning { background-color: #ffc107; }
   </style>
 </head>
 
 <body class="d-flex flex-column h-100">
+  <!-- Debug Console Button -->
+  <a href="debug-console.html" target="_blank" 
+     class="btn btn-secondary debug-console-btn" 
+     title="Open Debug Console"
+     aria-label="Open Debug Console">
+    <i class="fas fa-terminal"></i>
+  </a>
+
+  <!-- Loading Spinner -->
+  <div class="loading-spinner" id="loading-spinner">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+
+  <!-- Error Container -->
+  <div id="error-container" class="error-container"></div>
+
   <header>
     <!-- Fixed navbar -->
     <nav class="navbar navbar-expand-md navbar-dark" style="background-color: #6c757d;">
       <div class="container">
-        <span class="navbar-brand mb-0 h1">Reference Extractor</span>
+        <span class="navbar-brand mb-0 h1">
+          Reference Extractor
+          <small class="module-status" id="module-status">
+            <span class="status-indicator status-warning"></span>
+            Initializing...
+          </small>
+        </span>
       </div>
     </nav>
   </header>
@@ -216,7 +292,144 @@
         Powered by GitHub Pages. <a href="https://github.com/rmzelle/ref-extractor/">Code</a> on GitHub.</span>
     </div>
   </footer>
-  <script src="libraries/ref-extractor.js"></script>
+
+  <!-- RefExtractor Modular JavaScript Files -->
+  <!-- Core modules (in order) -->
+  <script src="js/config.js"></script>
+  <script src="js/logger.js"></script>
+  <script src="js/errorHandler.js"></script>
+  <script src="js/documentParser.js"></script>
+  <script src="js/fieldExtractor.js"></script>
+  <script src="js/citationProcessor.js"></script>
+  <script src="js/zoteroIntegration.js"></script>
+  <script src="js/outputFormatter.js"></script>
+  <script src="js/uiController.js"></script>
+  
+  <!-- Main application entry point -->
+  <script src="js/app.js"></script>
+
+  <!-- Application initialization and status management -->
+  <script>
+    // Debug helper
+    window.debugInfo = {
+      moduleLoadStatus: {},
+      errors: []
+    };
+
+    // Track module loading
+    function trackModuleLoad(moduleName) {
+      if (window[moduleName]) {
+        window.debugInfo.moduleLoadStatus[moduleName] = 'loaded';
+        console.log(`✓ ${moduleName} loaded successfully`);
+      } else {
+        window.debugInfo.moduleLoadStatus[moduleName] = 'failed';
+        console.error(`✗ ${moduleName} failed to load`);
+      }
+    }
+
+    // Check modules after all scripts should be loaded
+    window.addEventListener('load', function() {
+      console.log('Checking module loading status...');
+      
+      const modules = [
+        'RefExtractorConfig',
+        'RefExtractorLogger', 
+        'RefExtractorErrorHandler',
+        'RefExtractorDocumentParser',
+        'RefExtractorFieldExtractor',
+        'RefExtractorCitationProcessor',
+        'RefExtractorZoteroIntegration',
+        'RefExtractorOutputFormatter',
+        'RefExtractorUIController'
+      ];
+
+      modules.forEach(trackModuleLoad);
+      
+      console.log('Module loading status:', window.debugInfo.moduleLoadStatus);
+    });
+
+    // Application status management
+    document.addEventListener('DOMContentLoaded', function() {
+      const statusElement = document.getElementById('module-status');
+      const loadingSpinner = document.getElementById('loading-spinner');
+      
+      console.log('DOM loaded, starting initialization...');
+      
+      // Show loading spinner
+      if (loadingSpinner) {
+        loadingSpinner.style.display = 'block';
+      }
+      
+      // Listen for application events
+      window.addEventListener('refextractor:initialized', function(event) {
+        console.log('Application initialized successfully:', event.detail);
+        if (loadingSpinner) loadingSpinner.style.display = 'none';
+        if (statusElement) {
+          statusElement.innerHTML = `
+            <span class="status-indicator status-ok"></span>
+            Ready (${event.detail.modules.length} modules loaded)
+          `;
+        }
+      });
+
+      window.addEventListener('refextractor:error', function(event) {
+        console.error('Application error:', event.detail);
+        if (loadingSpinner) loadingSpinner.style.display = 'none';
+        if (statusElement) {
+          statusElement.innerHTML = `
+            <span class="status-indicator status-error"></span>
+            Error detected
+          `;
+        }
+      });
+
+      // Add global error handler for better debugging
+      window.addEventListener('error', function(event) {
+        console.error('Global error:', event);
+        window.debugInfo.errors.push({
+          message: event.message,
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno,
+          error: event.error
+        });
+      });
+
+      // Timeout fallback
+      setTimeout(function() {
+        if (loadingSpinner && loadingSpinner.style.display !== 'none') {
+          console.warn('Initialization timeout reached');
+          loadingSpinner.style.display = 'none';
+          if (statusElement) {
+            statusElement.innerHTML = `
+              <span class="status-indicator status-warning"></span>
+              Initialization timeout
+            `;
+          }
+        }
+      }, 10000);
+    });
+
+    // Debug helpers (available in console)
+    window.debugRefExtractor = function() {
+      if (window.RefExtractorDebug) {
+        console.log('RefExtractor Debug Info:', window.RefExtractorDebug.getAppStatus());
+        return window.RefExtractorDebug;
+      } else {
+        console.log('Debug utilities not available');
+        console.log('Module status:', window.debugInfo.moduleLoadStatus);
+        console.log('Errors:', window.debugInfo.errors);
+        return window.debugInfo;
+      }
+    };
+
+    // Performance monitoring
+    window.addEventListener('load', function() {
+      if (performance.mark) {
+        performance.mark('refextractor-page-loaded');
+      }
+    });
+  </script>
 </body>
 
 </html>
